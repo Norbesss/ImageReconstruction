@@ -4,6 +4,7 @@ A program az image.png kepet rekonstrualja egyre kevesebb, a [0, 180)
 szogtartomanyon egyenletesen elosztott parhuzamos vetuletbol.
 """
 
+import csv
 from pathlib import Path
 
 import matplotlib
@@ -61,6 +62,16 @@ def reconstruct(image: np.ndarray, projection_count: int) -> np.ndarray:
     return reconstruction > 0.5
 
 
+def relative_mean_error(original: np.ndarray, reconstructed: np.ndarray) -> float:
+    """RME = eltero pixelek szama / az eredeti kep feher pixeleinek szama."""
+    foreground_pixels = np.count_nonzero(original)
+    if foreground_pixels == 0:
+        raise ValueError("Az eredeti kep nem tartalmaz feher pixelt.")
+
+    different_pixels = np.count_nonzero(original != reconstructed)
+    return different_pixels / foreground_pixels
+
+
 def save_overview(images: list[tuple[int, np.ndarray]]) -> None:
     """Az osszes binaris rekonstrukciot egyetlen osszefoglalo abrara menti."""
     figure, axes = plt.subplots(3, 4, figsize=(10, 8))
@@ -75,21 +86,51 @@ def save_overview(images: list[tuple[int, np.ndarray]]) -> None:
     plt.close(figure)
 
 
+def save_rme_results(errors: list[tuple[int, float]]) -> None:
+    """CSV-t es grafikont ment a vetuletszam-RME ertekparokbol."""
+    sorted_errors = sorted(errors)
+
+    with (OUTPUT_DIR / "rme_values.csv").open("w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(("projection_count", "rme"))
+        writer.writerows(sorted_errors)
+
+    projection_counts = [item[0] for item in sorted_errors]
+    rme_values = [item[1] for item in sorted_errors]
+
+    figure, axis = plt.subplots(figsize=(9, 5))
+    axis.plot(projection_counts, rme_values, marker="o", linewidth=2)
+    axis.set_title("A rekonstrukciós hiba a vetületek számának függvényében")
+    axis.set_xlabel("Vetületek száma")
+    axis.set_ylabel("RME")
+    axis.set_xticks(projection_counts)
+    axis.grid(True, alpha=0.35)
+    figure.tight_layout()
+    figure.savefig(OUTPUT_DIR / "rme_plot.png", dpi=160, bbox_inches="tight")
+    plt.close(figure)
+
+
 def main() -> None:
     original = load_binary_image(INPUT_FILE)
     OUTPUT_DIR.mkdir(exist_ok=True)
 
     results = []
+    errors = []
     for projection_count in PROJECTION_COUNTS:
         binary_reconstruction = reconstruct(original, projection_count)
+        rme = relative_mean_error(original, binary_reconstruction)
         results.append((projection_count, binary_reconstruction))
+        errors.append((projection_count, rme))
 
         output_path = OUTPUT_DIR / f"reconstruction_{projection_count:03d}.png"
         io.imsave(output_path, binary_reconstruction.astype(np.uint8) * 255)
-        print(f"Elkeszult: {output_path}")
+        print(f"{projection_count:3d} vetulet: RME = {rme:.6f}")
 
     save_overview(results)
+    save_rme_results(errors)
     print(f"Osszefoglalo abra: {OUTPUT_DIR / 'overview.png'}")
+    print(f"RME grafikon: {OUTPUT_DIR / 'rme_plot.png'}")
+    print(f"RME tablazat: {OUTPUT_DIR / 'rme_values.csv'}")
 
 
 if __name__ == "__main__":

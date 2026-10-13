@@ -72,6 +72,27 @@ def relative_mean_error(original: np.ndarray, reconstructed: np.ndarray) -> floa
     return different_pixels / foreground_pixels
 
 
+def save_sinogram(image: np.ndarray) -> None:
+    """Elmenti a 180 parhuzamos vetuletbol allo szinogramot."""
+    angles = np.linspace(0.0, 180.0, 180, endpoint=False)
+    sinogram = radon(image.astype(float), theta=angles, circle=True)
+
+    figure, axis = plt.subplots(figsize=(9, 6))
+    display = axis.imshow(
+        sinogram,
+        cmap="gray",
+        aspect="auto",
+        extent=(angles[0], angles[-1], sinogram.shape[0], 0),
+    )
+    axis.set_title("Szinogram 180 párhuzamos vetületből")
+    axis.set_xlabel("Vetületi szög [fok]")
+    axis.set_ylabel("Detektorpozíció")
+    figure.colorbar(display, ax=axis, label="Vonalintegrál")
+    figure.tight_layout()
+    figure.savefig(OUTPUT_DIR / "sinogram_180.png", dpi=180, bbox_inches="tight")
+    plt.close(figure)
+
+
 def save_overview(images: list[tuple[int, np.ndarray]]) -> None:
     """Az osszes binaris rekonstrukciot egyetlen osszefoglalo abrara menti."""
     figure, axes = plt.subplots(3, 4, figsize=(10, 8))
@@ -113,6 +134,7 @@ def save_rme_results(errors: list[tuple[int, float]]) -> None:
 def main() -> None:
     original = load_binary_image(INPUT_FILE)
     OUTPUT_DIR.mkdir(exist_ok=True)
+    save_sinogram(original)
 
     results = []
     errors = []
@@ -131,6 +153,7 @@ def main() -> None:
     print(f"Osszefoglalo abra: {OUTPUT_DIR / 'overview.png'}")
     print(f"RME grafikon: {OUTPUT_DIR / 'rme_plot.png'}")
     print(f"RME tablazat: {OUTPUT_DIR / 'rme_values.csv'}")
+    print(f"Szinogram: {OUTPUT_DIR / 'sinogram_180.png'}")
 
 
 if __name__ == "__main__":

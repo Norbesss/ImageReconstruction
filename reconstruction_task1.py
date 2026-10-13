@@ -1,8 +1,6 @@
-"""1. feladat: keprekonstrukcio szurt visszavetelessel.
-
-A program az image.png kepet rekonstrualja egyre kevesebb, a [0, 180)
-szogtartomanyon egyenletesen elosztott parhuzamos vetuletbol.
-"""
+# 1. feladat: képrekonstrukció szűrt visszavetítéssel.
+# A program az "image.png" kepet rekonstrualja egyre kevesebb, a [0, 180)
+# szögtartományon egyenletesen elosztott párhuzamos vetületből.
 
 import csv
 from pathlib import Path
@@ -23,7 +21,6 @@ IMAGE_SIZE = 256
 
 
 def load_binary_image(path: Path) -> np.ndarray:
-    """Betolti, szurkearnyalatossa es 256 x 256 meretu binaris keppe alakitja."""
     image = io.imread(path)
 
     if image.ndim == 3:
@@ -38,13 +35,13 @@ def load_binary_image(path: Path) -> np.ndarray:
         preserve_range=True,
     )
 
-    # A bemeneti kepet is a teljes intenzitastartomany kozepen kuszoboljuk.
+    # A bemeneti képet a teljes intenzitástartomány közepén küszöböljük.
     threshold = (float(image.min()) + float(image.max())) / 2.0
     return image > threshold
 
 
 def reconstruct(image: np.ndarray, projection_count: int) -> np.ndarray:
-    """Szurt visszaveteles rekonstrukcio adott szamu parhuzamos vetuletbol."""
+    # Szűrt visszavetítés rekonstrukció adott számú párhuzamos vetületből.
     angles = np.linspace(0.0, 180.0, projection_count, endpoint=False)
     sinogram = radon(image.astype(float), theta=angles, circle=True)
 
@@ -57,23 +54,25 @@ def reconstruct(image: np.ndarray, projection_count: int) -> np.ndarray:
         output_size=image.shape[0],
     )
 
-    # A binaris bemenet intenzitastartomanya [0, 1], ennek kozepe 0.5.
-    # Ez 8 bites abrazolasban a feladatban megadott 127/128-as hatarnak felel meg.
+    # A bináris bemenet intenzitástartomanya [0, 1], ennek kozepe 0.5.
+    # Ez 8 bites ábrázolásban a megadott 127/128-as hatarnak felel meg.
     return reconstruction > 0.5
 
 
 def relative_mean_error(original: np.ndarray, reconstructed: np.ndarray) -> float:
-    """RME = eltero pixelek szama / az eredeti kep feher pixeleinek szama."""
+    # RME = eltérő pixelek száma / az eredeti kép fehér pixeleinek száma.
     foreground_pixels = np.count_nonzero(original)
+
     if foreground_pixels == 0:
         raise ValueError("Az eredeti kep nem tartalmaz feher pixelt.")
 
     different_pixels = np.count_nonzero(original != reconstructed)
+    
     return different_pixels / foreground_pixels
 
 
 def save_sinogram(image: np.ndarray) -> None:
-    """Elmenti a 180 parhuzamos vetuletbol allo szinogramot."""
+    # Elmenti a 180 parhuzamos vetületből álló szinogramot.
     angles = np.linspace(0.0, 180.0, 180, endpoint=False)
     sinogram = radon(image.astype(float), theta=angles, circle=True)
 
@@ -85,7 +84,7 @@ def save_sinogram(image: np.ndarray) -> None:
         extent=(angles[0], angles[-1], sinogram.shape[0], 0),
     )
     axis.set_title("Szinogram 180 párhuzamos vetületből")
-    axis.set_xlabel("Vetületi szög [fok]")
+    axis.set_xlabel("Vetületi szög (fok)")
     axis.set_ylabel("Detektorpozíció")
     figure.colorbar(display, ax=axis, label="Vonalintegrál")
     figure.tight_layout()
@@ -94,21 +93,22 @@ def save_sinogram(image: np.ndarray) -> None:
 
 
 def save_overview(images: list[tuple[int, np.ndarray]]) -> None:
-    """Az osszes binaris rekonstrukciot egyetlen osszefoglalo abrara menti."""
+    # Az összes bináris rekonstrukciót egyetlen összefoglaló ábrára menti.
     figure, axes = plt.subplots(3, 4, figsize=(10, 8))
+
     for axis, (projection_count, image) in zip(axes.flat, images):
         axis.imshow(image, cmap="gray", vmin=0, vmax=1)
-        axis.set_title(f"{projection_count} vetulet")
+        axis.set_title(f"{projection_count} vetület")
         axis.axis("off")
 
-    figure.suptitle("Szurt visszaveteles rekonstrukciok", fontsize=14)
+    figure.suptitle("Szűrt visszavetítés rekonstrukciók", fontsize=14)
     figure.tight_layout()
     figure.savefig(OUTPUT_DIR / "overview.png", dpi=160, bbox_inches="tight")
     plt.close(figure)
 
 
 def save_rme_results(errors: list[tuple[int, float]]) -> None:
-    """CSV-t es grafikont ment a vetuletszam-RME ertekparokbol."""
+    # CSV-t es grafikont ment a vetületszám-RME értékpárokból.
     sorted_errors = sorted(errors)
 
     with (OUTPUT_DIR / "rme_values.csv").open("w", newline="", encoding="utf-8") as file:
@@ -138,6 +138,7 @@ def main() -> None:
 
     results = []
     errors = []
+
     for projection_count in PROJECTION_COUNTS:
         binary_reconstruction = reconstruct(original, projection_count)
         rme = relative_mean_error(original, binary_reconstruction)
@@ -150,9 +151,9 @@ def main() -> None:
 
     save_overview(results)
     save_rme_results(errors)
-    print(f"Osszefoglalo abra: {OUTPUT_DIR / 'overview.png'}")
+    print(f"Osszefoglaló ábra: {OUTPUT_DIR / 'overview.png'}")
     print(f"RME grafikon: {OUTPUT_DIR / 'rme_plot.png'}")
-    print(f"RME tablazat: {OUTPUT_DIR / 'rme_values.csv'}")
+    print(f"RME táblázat: {OUTPUT_DIR / 'rme_values.csv'}")
     print(f"Szinogram: {OUTPUT_DIR / 'sinogram_180.png'}")
 
 
